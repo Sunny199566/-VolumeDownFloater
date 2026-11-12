@@ -7,10 +7,13 @@ targets:
   VolumeDownFloater:
     type: application
     platform: iOS
-    sources: 
-      - Sources
+    sources:
+      - path: Sources
     info:
-      path: Sources/Info.plist
+      path: GeneratedInfo.plist
+      properties:
+        CFBundleDisplayName: VolDown
+        UILaunchScreen: {}
     settings:
       base:
         CODE_SIGN_IDENTITY: ""
