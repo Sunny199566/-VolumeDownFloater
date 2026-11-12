@@ -25,20 +25,19 @@ jobs:
             -scheme VolumeDownFloater \
             -sdk iphoneos \
             -configuration Release \
-            -archivePath $RUNNER_TEMP/App.xcarchive \
+            -archivePath App.xcarchive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Package into IPA
         run: |
-          mkdir -p $RUNNER_TEMP/Payload
-          cp -R $RUNNER_TEMP/App.xcarchive/Products/Applications/VolumeDownFloater.app $RUNNER_TEMP/Payload/
-          cd $RUNNER_TEMP
+          mkdir -p Payload
+          cp -R App.xcarchive/Products/Applications/VolumeDownFloater.app Payload/
           zip -r VolumeDownFloater.ipa Payload
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: TrollStore-VolumeDown-IPA
-          path: $RUNNER_TEMP/VolumeDownFloater.ipa
+          path: VolumeDownFloater.ipa
