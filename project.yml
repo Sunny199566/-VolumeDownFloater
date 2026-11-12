@@ -1,0 +1,20 @@
+name: VolumeDownFloater
+options:
+  bundleIdPrefix: com.yourname
+  deploymentTarget:
+    iOS: "14.0"
+targets:
+  VolumeDownFloater:
+    type: application
+    platform: iOS
+    sources: 
+      - Sources
+    info:
+      path: Sources/Info.plist
+    settings:
+      base:
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGN_ENTITLEMENTS: Sources/App.entitlements
+        ENABLE_BITCODE: "NO"
