@@ -22,14 +22,16 @@ void simulateVolumeDown(void) {
         if (client) {
             uint64_t timestamp = mach_absolute_time();
             
+            // 按下
             IOHIDEventRef downEvent = createEvent(kCFAllocatorDefault, timestamp, 0x0C, 0xEA, true, 0);
             if (downEvent) {
                 dispatchEvent(client, downEvent);
                 CFRelease(downEvent);
             }
             
-            usleep(50000);
+            usleep(50000); // 延时 50 毫秒
             
+            // 抬起
             IOHIDEventRef upEvent = createEvent(kCFAllocatorDefault, timestamp, 0x0C, 0xEA, false, 0);
             if (upEvent) {
                 dispatchEvent(client, upEvent);
@@ -121,10 +123,19 @@ void simulateVolumeDown(void) {
     });
 }
 
-// 核心新增：从系统偏好设置读取开关状态，决定是否彻底隐藏
+// 核心：从系统偏好设置读取开关状态，决定是否彻底隐藏
 - (void)updateVisibility {
-    CFPreferencesAppSynchronize(CFSTR("com.yourname.volumedownfloater"));
-    Boolean showFloater = CFPreferencesGetAppBooleanValue(CFSTR("enabled"), CFSTR("com.yourname.volumedownfloater"), NULL);
+    CFStringRef appID = CFSTR("com.yourname.volumedownfloater");
+    CFPreferencesAppSynchronize(appID);
+    
+    Boolean keyExistsAndHasValidFormat;
+    Boolean showFloater = CFPreferencesGetAppBooleanValue(CFSTR("enabled"), appID, &keyExistsAndHasValidFormat);
+    
+    // 关键修复：如果用户从来没设置过，默认显示（YES）
+    if (!keyExistsAndHasValidFormat) {
+        showFloater = YES;
+    }
+    
     self.window.hidden = !showFloater;
 }
 
