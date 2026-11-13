@@ -1,12 +1,14 @@
-TARGET := iphone:clang:latest:14.0
 ARCHS = arm64 arm64e
+TARGET = iphone:clang:latest:14.0
 INSTALL_TARGET_PROCESSES = SpringBoard
 
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = VolumeDownFloater
 VolumeDownFloater_FILES = Tweak.xm
-VolumeDownFloater_CFLAGS = -fobjc-arc
-VolumeDownFloater_FRAMEWORKS = UIKit
+VolumeDownFloater_CFLAGS = -fobjc-arc -Wno-everything
 
 include $(THEOS_MAKE_PATH)/tweak.mk
+
+SUBPROJECTS += prefs
+include $(THEOS_MAKE_PATH)/aggregate.mk
