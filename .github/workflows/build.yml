@@ -14,18 +14,23 @@ jobs:
 
       - name: Setup Theos Manually
         run: |
-          brew install ldid xz make dpkg
+          # 安装编译所需的工具 (去掉了不需要的 xz)
+          brew install ldid dpkg
+          
+          # 设置环境变量
           export THEOS="${{ github.workspace }}/theos"
-          git clone --recursive https://github.com/theos/theos.git $THEOS
-          curl -LO https://codeload.github.com/theos/sdks/zip/refs/heads/master
-          unzip -q master
-          mkdir -p $THEOS/sdks
-          mv sdks-master/*.sdk $THEOS/sdks/
           echo "THEOS=$THEOS" >> $GITHUB_ENV
           echo "$THEOS/bin" >> $GITHUB_PATH
+          
+          # 克隆 Theos 主程序
+          git clone --recursive https://github.com/theos/theos.git $THEOS
+          
+          # 直接用 git 克隆 SDK 库，彻底解决解压导致的权限报错
+          git clone --depth 1 https://github.com/theos/sdks.git $THEOS/sdks
 
       - name: Compile Deb
         run: |
+          # 编译并打包成 Rootless 格式
           make package THEOS_PACKAGE_SCHEME=rootless FINALPACKAGE=1
 
       - name: Upload Deb
