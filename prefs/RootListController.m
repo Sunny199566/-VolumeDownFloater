@@ -1,12 +1,14 @@
 #import <UIKit/UIKit.h>
 
-// 动态声明系统的设置类，这样就不需要去找私有头文件了
+// 动态声明系统的设置类
 @interface PSListController : UIViewController
-@property (nonatomic, retain) NSArray *specifiers;
 - (NSArray *)loadSpecifiersFromPlistName:(NSString *)name target:(id)target;
 @end
 
-@interface RootListController : PSListController
+// 这里加上大括号，声明 _specifiers 变量
+@interface RootListController : PSListController {
+    NSArray *_specifiers;
+}
 @end
 
 @implementation RootListController
