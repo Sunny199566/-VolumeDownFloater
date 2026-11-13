@@ -16,6 +16,7 @@ targets:
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio
+          - picture-in-picture
     settings:
       base:
         CODE_SIGN_IDENTITY: ""
