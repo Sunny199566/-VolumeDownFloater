@@ -1,0 +1,9 @@
+Package: com.yourname.volumedownfloater
+Name: Volume Down Floater
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: 全局悬浮窗，点击模拟音量减键。
+Maintainer: YourName
+Author: YourName
+Section: Tweaks
+Depends: mobilesubstrate
