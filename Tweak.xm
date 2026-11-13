@@ -62,22 +62,37 @@ void simulateVolumeDown(void) {
 
 - (void)setup {
     dispatch_async(dispatch_get_main_queue(), ^{
-        // 核心修改：窗口大小直接设置为 60x60，不再是全屏，彻底解决桌面卡死
+        UIWindowScene *windowScene = nil;
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]]) {
+                windowScene = (UIWindowScene *)scene;
+                break;
+            }
+        }
+        
         CGFloat btnSize = 60.0;
-        self.window = [[UIWindow alloc] initWithFrame:CGRectMake(20, 150, btnSize, btnSize)];
+        
+        if (@available(iOS 13.0, *)) {
+            if (windowScene) {
+                self.window = [[UIWindow alloc] initWithWindowScene:windowScene];
+            }
+        }
+        if (!self.window) {
+            self.window = [[UIWindow alloc] initWithFrame:CGRectMake(20, 150, btnSize, btnSize)];
+        }
+        
+        self.window.frame = CGRectMake(20, 150, btnSize, btnSize);
         self.window.windowLevel = UIWindowLevelAlert + 2000;
         self.window.backgroundColor = [UIColor clearColor];
-        
-        UIViewController *rootVC = [UIViewController new];
-        rootVC.view.backgroundColor = [UIColor clearColor];
-        self.window.rootViewController = rootVC;
+        self.window.rootViewController = [UIViewController new];
+        self.window.rootViewController.view.backgroundColor = [UIColor clearColor];
         self.window.hidden = NO;
 
         self.hapticGenerator = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
         [self.hapticGenerator prepare];
 
         self.floatBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-        self.floatBtn.frame = self.window.bounds; // 按钮填满这个 60x60 的小窗口
+        self.floatBtn.frame = self.window.rootViewController.view.bounds;
         self.floatBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.3 blue:0.3 alpha:0.9];
         self.floatBtn.layer.cornerRadius = btnSize / 2.0;
         self.floatBtn.layer.masksToBounds = YES;
@@ -86,7 +101,7 @@ void simulateVolumeDown(void) {
         [self.floatBtn addTarget:self action:@selector(btnTapped) forControlEvents:UIControlEventTouchUpInside];
         [self.floatBtn addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)]];
         
-        [rootVC.view addSubview:self.floatBtn];
+        [self.window.rootViewController.view addSubview:self.floatBtn];
     });
 }
 
@@ -97,7 +112,6 @@ void simulateVolumeDown(void) {
 }
 
 - (void)handlePan:(UIPanGestureRecognizer *)pan {
-    // 现在是移动整个小窗口
     CGPoint translation = [pan translationInView:self.window];
     CGPoint newCenter = CGPointMake(self.window.center.x + translation.x, self.window.center.y + translation.y);
     
@@ -108,8 +122,8 @@ void simulateVolumeDown(void) {
     CGFloat padding = 10.0;
     CGFloat minX = btnRadius + padding;
     CGFloat maxX = screenWidth - btnRadius - padding;
-    CGFloat minY = btnRadius + 50.0; // 避开刘海/灵动岛
-    CGFloat maxY = screenHeight - btnRadius - 30.0; // 避开底部横条
+    CGFloat minY = btnRadius + 50.0;
+    CGFloat maxY = screenHeight - btnRadius - 30.0;
     
     newCenter.x = MAX(minX, MIN(newCenter.x, maxX));
     newCenter.y = MAX(minY, MIN(newCenter.y, maxY));
