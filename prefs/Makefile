@@ -1,7 +1,6 @@
 BUNDLE_NAME = VolumeDownFloaterPrefs
 VolumeDownFloaterPrefs_FILES = RootListController.m
 VolumeDownFloaterPrefs_FRAMEWORKS = UIKit
-VolumeDownFloaterPrefs_PRIVATE_FRAMEWORKS = Preferences
 VolumeDownFloaterPrefs_INSTALL_PATH = /Library/PreferenceBundles
 
 include $(THEOS)/makefiles/common.mk
