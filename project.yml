@@ -5,16 +5,21 @@ options:
     iOS: "14.0"
 targets:
   VolumeDownFloater:
-    type: framework
+    type: application
     platform: iOS
     sources:
       - path: Sources
+    info:
+      path: GeneratedInfo.plist
+      properties:
+        CFBundleDisplayName: VolDown
+        UILaunchScreen: {}
+        UIBackgroundModes:
+          - audio
     settings:
       base:
-        MACH_O_TYPE: mh_dylib
-        PRODUCT_NAME: VolumeDownFloater
         CODE_SIGN_IDENTITY: ""
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGN_ENTITLEMENTS: Sources/App.entitlements
         ENABLE_BITCODE: "NO"
-        SKIP_INSTALL: "NO"
