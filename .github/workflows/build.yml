@@ -14,18 +14,19 @@ jobs:
 
       - name: Setup Theos Manually
         run: |
+          brew install ldid xz make dpkg
           export THEOS="${{ github.workspace }}/theos"
-          mkdir -p $THEOS
-          curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos | bash
+          git clone --recursive https://github.com/theos/theos.git $THEOS
+          curl -LO https://codeload.github.com/theos/sdks/zip/refs/heads/master
+          unzip -q master
+          mkdir -p $THEOS/sdks
+          mv sdks-master/*.sdk $THEOS/sdks/
           echo "THEOS=$THEOS" >> $GITHUB_ENV
           echo "$THEOS/bin" >> $GITHUB_PATH
 
-      - name: Install ldid
-        run: brew install ldid
-
       - name: Compile Deb
         run: |
-          make package FINALPACKAGE=1
+          make package THEOS_PACKAGE_SCHEME=rootless FINALPACKAGE=1
 
       - name: Upload Deb
         uses: actions/upload-artifact@v4
