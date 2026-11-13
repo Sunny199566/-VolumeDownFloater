@@ -1,9 +1,9 @@
 Package: com.yourname.volumedownfloater
-Name: Volume Down Floater
+Name: VolumeDownFloater
 Version: 1.0.0
 Architecture: iphoneos-arm64
-Description: 全局悬浮窗，点击模拟音量减键。
-Maintainer: YourName
-Author: YourName
+Description: A global floating button to simulate volume down.
+Maintainer: You
+Author: You
 Section: Tweaks
 Depends: mobilesubstrate
