@@ -1,80 +1,73 @@
 #import <UIKit/UIKit.h>
-#import <MediaPlayer/MediaPlayer.h>
+#import <AVKit/AVKit.h>
 #import <AVFoundation/AVFoundation.h>
+#import <MediaPlayer/MediaPlayer.h>
 
-@interface FloatWindow : UIWindow
-@end
-
-@implementation FloatWindow
-- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
-    UIView *view = [super hitTest:point withEvent:event];
-    return view == self ? nil : view;
-}
-@end
-
-@interface AppDelegate : UIResponder <UIApplicationDelegate>
-@property (strong, nonatomic) FloatWindow *window;
-@property (strong, nonatomic) UIButton *floatBtn;
-@property (strong, nonatomic) AVAudioPlayer *silentPlayer;
+@interface AppDelegate : UIResponder <UIApplicationDelegate, AVPictureInPictureControllerDelegate>
+@property (strong, nonatomic) UIWindow *window;
+@property (strong, nonatomic) AVPlayer *player;
+@property (strong, nonatomic) AVPlayerLayer *playerLayer;
+@property (strong, nonatomic) AVPictureInPictureController *pipController;
 @end
 
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-    
-    // 1. 开启静音后台保活，防止系统杀后台导致悬浮窗消失
-    NSError *sessionError = nil;
-    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:&sessionError];
-    [[AVAudioSession sharedInstance] setActive:YES error:&sessionError];
-    
-    NSString *soundFilePath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"silence.caf"];
-    if (![[NSFileManager defaultManager] fileExistsAtPath:soundFilePath]) {
-        NSData *emptyData = [[NSData alloc] initWithBase64EncodedString:@"UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=" options:NSDataBase64DecodingIgnoreUnknownCharacters];
-        [emptyData writeToFile:soundFilePath atomically:YES];
-    }
-    self.silentPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:[NSURL fileURLWithPath:soundFilePath] error:nil];
-    self.silentPlayer.numberOfLoops = -1;
-    [self.silentPlayer play];
-
-    // 2. 创建悬浮窗
-    UIWindowScene *windowScene = nil;
-    for (UIScene *scene in application.connectedScenes) {
-        if ([scene isKindOfClass:[UIWindowScene class]]) {
-            windowScene = (UIWindowScene *)scene;
-            break;
-        }
-    }
-    if (@available(iOS 13.0, *)) {
-        if (windowScene) {
-            self.window = [[FloatWindow alloc] initWithWindowScene:windowScene];
-        }
-    }
-    if (!self.window) {
-        self.window = [[FloatWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
-    }
-    
-    self.window.windowLevel = UIWindowLevelAlert + 2000;
-    self.window.backgroundColor = [UIColor clearColor];
+    self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
     UIViewController *rootVC = [UIViewController new];
+    rootVC.view.backgroundColor = [UIColor whiteColor];
     self.window.rootViewController = rootVC;
     self.window.hidden = NO;
 
-    // 3. 创建悬浮球
-    self.floatBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    self.floatBtn.frame = CGRectMake(20, 150, 60, 60);
-    self.floatBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.3 blue:0.3 alpha:0.9];
-    self.floatBtn.layer.cornerRadius = 30;
-    self.floatBtn.layer.masksToBounds = YES;
-    [self.floatBtn setTitle:@"音量-" forState:UIControlStateNormal];
-    [self.floatBtn addTarget:self action:@selector(btnTapped) forControlEvents:UIControlEventTouchUpInside];
-    [self.floatBtn addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)]];
+    // 设置后台音频会话，保证画中画不被杀
+    NSError *error = nil;
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:&error];
+    [[AVAudioSession sharedInstance] setActive:YES error:&error];
+
+    // 生成一个透明的 1 像素视频用来欺骗系统
+    NSString *videoPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"blank.mp4"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:videoPath]) {
+        // 此处为空白视频的基础数据（极简生成或直接使用本地的文件）
+        NSData *blankVideoData = [[NSData alloc] initWithBase64EncodedString:@"AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAs1tZGF0AAACrgYF//+q3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbAABAAAAEm1vb3YAAABsbXZoZAAAAAAAAAAAAAAAAAAAA+gAAAAAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAHYdHJhawAAAFx0a2hkAAAAAwAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAABAAAAAQAAAAAAJGVkdHMAAAAcZWxzdAAAAAAAAAABAAAB2AAAAAAAAQAAAAABUG1kaWEAAAAgbWRoZAAAAAAAAAAAAAAAAAAAu4AAAfQAFccQAAAAADRoZGxyAAAAAAAAAAB2aWRlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADG1pbmYAAAAkdm1oZAAAAAEAAAAAAAAAAAAAACBkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAABBzdGJsAAAAEHN0c2QAAAAAAAAAAQAAABBzdHRzAAAAAAAAAAEAAAABAAAAAQAAABxzdHNjAAAAAAAAAAEAAAABAAAAAQAAAAEAAAAUc3RzegAAAAAAAAAFAAAAAQAAABRzdGNvAAAAAAAAAAEAAAAwAAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDA=" options:NSDataBase64DecodingIgnoreUnknownCharacters];
+        [blankVideoData writeToFile:videoPath atomically:YES];
+    }
+
+    // 创建播放器
+    self.player = [AVPlayer playerWithURL:[NSURL fileURLWithPath:videoPath]];
+    self.playerLayer = [AVPlayerLayer playerLayerWithPlayer:self.player];
+    self.playerLayer.frame = CGRectMake(0, 0, 1, 1);
+    [rootVC.view.layer addSublayer:self.playerLayer];
+
+    // 开启画中画
+    if ([AVPictureInPictureController isPictureInPictureSupported]) {
+        self.pipController = [[AVPictureInPictureController alloc] initWithPlayerLayer:self.playerLayer];
+        self.pipController.delegate = self;
+        // 允许画中画自动开启
+        if (@available(iOS 14.2, *)) {
+            self.pipController.canStartPictureInPictureAutomaticallyFromInline = YES;
+        }
+        [self.player play];
+        [self.pipController startPictureInPicture];
+    }
+
+    // 监听画中画的“播放/暂停”按钮点击事件（完美解决点击延迟）
+    MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
+    [commandCenter.togglePlayPauseCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent * _Nonnull event) {
+        // 当你在微信里点击画中画上的暂停按钮时，触发这里！
+        [self simulateVolumeDown];
+        return MPRemoteCommandHandlerStatusSuccess;
+    }];
     
-    [rootVC.view addSubview:self.floatBtn];
+    [commandCenter.playCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent * _Nonnull event) {
+        [self simulateVolumeDown];
+        return MPRemoteCommandHandlerStatusSuccess;
+    }];
+
     return YES;
 }
 
-- (void)btnTapped {
-    // 直接调用系统音量调节，产生真实的音量减事件
+- (void)simulateVolumeDown {
+    // 调节系统音量
     MPVolumeView *volumeView = [[MPVolumeView alloc] init];
     UISlider *volumeSlider = nil;
     for (UIView *view in [volumeView subviews]) {
@@ -84,18 +77,13 @@
         }
     }
     if (volumeSlider) {
-        float newVolume = volumeSlider.value - (1.0 / 16.0); // 降低一格
+        float newVolume = volumeSlider.value - (1.0 / 16.0);
         if (newVolume < 0) newVolume = 0;
         [volumeSlider setValue:newVolume animated:YES];
         [volumeSlider sendActionsForControlEvents:UIControlEventTouchUpInside];
     }
 }
 
-- (void)handlePan:(UIPanGestureRecognizer *)pan {
-    CGPoint translation = [pan translationInView:self.window];
-    self.floatBtn.center = CGPointMake(self.floatBtn.center.x + translation.x, self.floatBtn.center.y + translation.y);
-    [pan setTranslation:CGPointZero inView:self.window];
-}
 @end
 
 int main(int argc, char * argv[]) {
