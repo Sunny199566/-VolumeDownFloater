@@ -6,4 +6,4 @@ Description: A global floating button to simulate volume down.
 Maintainer: You
 Author: You
 Section: Tweaks
-Depends: mobilesubstrate
+Depends: mobilesubstrate, preferenceloader
