@@ -12,8 +12,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Theos
-        uses: kohler/theos-action@master
+      - name: Setup Theos Manually
+        run: |
+          export THEOS="${{ github.workspace }}/theos"
+          mkdir -p $THEOS
+          curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos | bash
+          echo "THEOS=$THEOS" >> $GITHUB_ENV
+          echo "$THEOS/bin" >> $GITHUB_PATH
 
       - name: Install ldid
         run: brew install ldid
