@@ -22,16 +22,14 @@ void simulateVolumeDown(void) {
         if (client) {
             uint64_t timestamp = mach_absolute_time();
             
-            // 按下
             IOHIDEventRef downEvent = createEvent(kCFAllocatorDefault, timestamp, 0x0C, 0xEA, true, 0);
             if (downEvent) {
                 dispatchEvent(client, downEvent);
                 CFRelease(downEvent);
             }
             
-            usleep(50000); // 延时 50 毫秒
+            usleep(50000);
             
-            // 抬起
             IOHIDEventRef upEvent = createEvent(kCFAllocatorDefault, timestamp, 0x0C, 0xEA, false, 0);
             if (upEvent) {
                 dispatchEvent(client, upEvent);
@@ -43,17 +41,8 @@ void simulateVolumeDown(void) {
     dlclose(handle);
 }
 
-@interface FloatWindow : UIWindow
-@end
-@implementation FloatWindow
-- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
-    UIView *view = [super hitTest:point withEvent:event];
-    return view == self ? nil : view;
-}
-@end
-
 @interface FloaterManager : NSObject
-@property (strong, nonatomic) FloatWindow *window;
+@property (strong, nonatomic) UIWindow *window;
 @property (strong, nonatomic) UIButton *floatBtn;
 @property (strong, nonatomic) UIImpactFeedbackGenerator *hapticGenerator;
 + (instancetype)sharedInstance;
@@ -73,41 +62,31 @@ void simulateVolumeDown(void) {
 
 - (void)setup {
     dispatch_async(dispatch_get_main_queue(), ^{
-        UIWindowScene *windowScene = nil;
-        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if ([scene isKindOfClass:[UIWindowScene class]]) {
-                windowScene = (UIWindowScene *)scene;
-                break;
-            }
-        }
-        
-        if (@available(iOS 13.0, *)) {
-            if (windowScene) {
-                self.window = [[FloatWindow alloc] initWithWindowScene:windowScene];
-            }
-        }
-        if (!self.window) {
-            self.window = [[FloatWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
-        }
-        
+        // 核心修改：窗口大小直接设置为 60x60，不再是全屏，彻底解决桌面卡死
+        CGFloat btnSize = 60.0;
+        self.window = [[UIWindow alloc] initWithFrame:CGRectMake(20, 150, btnSize, btnSize)];
         self.window.windowLevel = UIWindowLevelAlert + 2000;
         self.window.backgroundColor = [UIColor clearColor];
-        self.window.rootViewController = [UIViewController new];
+        
+        UIViewController *rootVC = [UIViewController new];
+        rootVC.view.backgroundColor = [UIColor clearColor];
+        self.window.rootViewController = rootVC;
         self.window.hidden = NO;
 
         self.hapticGenerator = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
         [self.hapticGenerator prepare];
 
         self.floatBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-        self.floatBtn.frame = CGRectMake(20, 150, 60, 60);
+        self.floatBtn.frame = self.window.bounds; // 按钮填满这个 60x60 的小窗口
         self.floatBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.3 blue:0.3 alpha:0.9];
-        self.floatBtn.layer.cornerRadius = 30;
+        self.floatBtn.layer.cornerRadius = btnSize / 2.0;
         self.floatBtn.layer.masksToBounds = YES;
         [self.floatBtn setTitle:@"音量-" forState:UIControlStateNormal];
+        
         [self.floatBtn addTarget:self action:@selector(btnTapped) forControlEvents:UIControlEventTouchUpInside];
         [self.floatBtn addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)]];
         
-        [self.window.rootViewController.view addSubview:self.floatBtn];
+        [rootVC.view addSubview:self.floatBtn];
     });
 }
 
@@ -118,31 +97,24 @@ void simulateVolumeDown(void) {
 }
 
 - (void)handlePan:(UIPanGestureRecognizer *)pan {
+    // 现在是移动整个小窗口
     CGPoint translation = [pan translationInView:self.window];
-    CGPoint newCenter = CGPointMake(self.floatBtn.center.x + translation.x, self.floatBtn.center.y + translation.y);
+    CGPoint newCenter = CGPointMake(self.window.center.x + translation.x, self.window.center.y + translation.y);
     
-    // --- 核心：边界限制计算 ---
-    CGFloat btnRadius = self.floatBtn.bounds.size.width / 2.0;
-    CGFloat screenWidth = self.window.bounds.size.width;
-    CGFloat screenHeight = self.window.bounds.size.height;
+    CGFloat btnRadius = self.window.bounds.size.width / 2.0;
+    CGFloat screenWidth = [UIScreen mainScreen].bounds.size.width;
+    CGFloat screenHeight = [UIScreen mainScreen].bounds.size.height;
     
-    // 留一点边距，防止贴边时手指不好按（这里左右留 10pt 边距）
     CGFloat padding = 10.0;
-    
-    // 计算允许的最小和最大中心点
     CGFloat minX = btnRadius + padding;
     CGFloat maxX = screenWidth - btnRadius - padding;
+    CGFloat minY = btnRadius + 50.0; // 避开刘海/灵动岛
+    CGFloat maxY = screenHeight - btnRadius - 30.0; // 避开底部横条
     
-    // 顶部避开灵动岛/状态栏（大约 50pt），底部避开 Home Indicator（大约 30pt）
-    CGFloat minY = btnRadius + 50.0; 
-    CGFloat maxY = screenHeight - btnRadius - 30.0;
-    
-    // 限制新的中心点不能超出范围
     newCenter.x = MAX(minX, MIN(newCenter.x, maxX));
     newCenter.y = MAX(minY, MIN(newCenter.y, maxY));
     
-    // 重新赋值
-    self.floatBtn.center = newCenter;
+    self.window.center = newCenter;
     [pan setTranslation:CGPointZero inView:self.window];
 }
 @end
