@@ -5,7 +5,7 @@ options:
     iOS: "14.0"
 targets:
   VolumeDownFloater:
-    type: library
+    type: framework
     platform: iOS
     sources:
       - path: Sources
@@ -17,3 +17,4 @@ targets:
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGNING_ALLOWED: "NO"
         ENABLE_BITCODE: "NO"
+        SKIP_INSTALL: "NO"
