@@ -1,4 +1,4 @@
-name: Build TrollFools Dylib
+name: Build TrollStore IPA
 
 on:
   push:
@@ -18,26 +18,26 @@ jobs:
       - name: Generate Xcode Project
         run: xcodegen generate
 
-      - name: Build Dylib
+      - name: Build Archive
         run: |
-          xcodebuild build \
+          xcodebuild archive \
             -project VolumeDownFloater.xcodeproj \
             -scheme VolumeDownFloater \
             -sdk iphoneos \
             -configuration Release \
-            CONFIGURATION_BUILD_DIR=./output \
+            -archivePath App.xcarchive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Package into Zip
+      - name: Package into IPA
         run: |
-          cp output/VolumeDownFloater.framework/VolumeDownFloater output/VolumeDownFloater.dylib
-          cd output
-          zip VolumeDownFloater.zip VolumeDownFloater.dylib
+          mkdir -p Payload
+          cp -R App.xcarchive/Products/Applications/VolumeDownFloater.app Payload/
+          zip -r VolumeDownFloater.ipa Payload
 
-      - name: Upload Dylib
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: TrollFools-Dylib
-          path: output/VolumeDownFloater.zip
+          name: TrollStore-VolumeDown-IPA
+          path: VolumeDownFloater.ipa
