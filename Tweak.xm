@@ -22,16 +22,14 @@ void simulateVolumeDown(void) {
         if (client) {
             uint64_t timestamp = mach_absolute_time();
             
-            // 按下
             IOHIDEventRef downEvent = createEvent(kCFAllocatorDefault, timestamp, 0x0C, 0xEA, true, 0);
             if (downEvent) {
                 dispatchEvent(client, downEvent);
                 CFRelease(downEvent);
             }
             
-            usleep(50000); // 延时 50 毫秒
+            usleep(50000);
             
-            // 抬起
             IOHIDEventRef upEvent = createEvent(kCFAllocatorDefault, timestamp, 0x0C, 0xEA, false, 0);
             if (upEvent) {
                 dispatchEvent(client, upEvent);
@@ -46,11 +44,12 @@ void simulateVolumeDown(void) {
 @interface FloaterManager : NSObject
 @property (strong, nonatomic) UIWindow *window;
 @property (strong, nonatomic) UIButton *floatBtn;
-@property (strong, nonatomic) UIImpactFeedbackGenerator *hapticGenerator; // 点击震动
-@property (strong, nonatomic) UINotificationFeedbackGenerator *notifyGenerator; // 状态切换震动
-@property (nonatomic, assign) BOOL isActive; // 新增：当前是否开启
+@property (strong, nonatomic) UIImpactFeedbackGenerator *hapticGenerator;
+@property (strong, nonatomic) UINotificationFeedbackGenerator *notifyGenerator;
+@property (nonatomic, assign) BOOL isActive; 
 + (instancetype)sharedInstance;
 - (void)setup;
+- (void)updateVisibility;
 @end
 
 @implementation FloaterManager
@@ -92,42 +91,45 @@ void simulateVolumeDown(void) {
         self.window.rootViewController.view.backgroundColor = [UIColor clearColor];
         self.window.hidden = NO;
 
-        // 初始化震动引擎
         self.hapticGenerator = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
         [self.hapticGenerator prepare];
         
         self.notifyGenerator = [[UINotificationFeedbackGenerator alloc] init];
         [self.notifyGenerator prepare];
         
-        // 默认开启状态
         self.isActive = YES;
 
-        // 创建悬浮球
         self.floatBtn = [UIButton buttonWithType:UIButtonTypeCustom];
         self.floatBtn.frame = self.window.rootViewController.view.bounds;
-        self.floatBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.3 blue:0.3 alpha:0.9]; // 默认红色
+        self.floatBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.3 blue:0.3 alpha:0.9];
         self.floatBtn.layer.cornerRadius = btnSize / 2.0;
         self.floatBtn.layer.masksToBounds = YES;
         [self.floatBtn setTitle:@"音量-" forState:UIControlStateNormal];
         
-        // 1. 单击手势（触发脚本）
         [self.floatBtn addTarget:self action:@selector(btnTapped) forControlEvents:UIControlEventTouchUpInside];
         
-        // 2. 长按手势（切换开关）
         UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPress:)];
-        longPress.minimumPressDuration = 0.5; // 按住 0.5 秒触发
+        longPress.minimumPressDuration = 0.5;
         [self.floatBtn addGestureRecognizer:longPress];
         
-        // 3. 拖拽手势
         [self.floatBtn addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)]];
         
         [self.window.rootViewController.view addSubview:self.floatBtn];
+        
+        // 初始化完成后，立刻检查设置里的开关状态
+        [self updateVisibility];
     });
 }
 
+// 核心新增：从系统偏好设置读取开关状态，决定是否彻底隐藏
+- (void)updateVisibility {
+    CFPreferencesAppSynchronize(CFSTR("com.yourname.volumedownfloater"));
+    Boolean showFloater = CFPreferencesGetAppBooleanValue(CFSTR("enabled"), CFSTR("com.yourname.volumedownfloater"), NULL);
+    self.window.hidden = !showFloater;
+}
+
 - (void)btnTapped {
-    // 如果开关是关闭状态，直接返回，不执行任何操作
-    if (!self.isActive) return;
+    if (!self.isActive || self.window.hidden) return;
 
     [self.hapticGenerator impactOccurred];
     [self.hapticGenerator prepare]; 
@@ -136,18 +138,29 @@ void simulateVolumeDown(void) {
 
 - (void)handleLongPress:(UILongPressGestureRecognizer *)gesture {
     if (gesture.state == UIGestureRecognizerStateBegan) {
-        // 切换状态
         self.isActive = !self.isActive;
         
-        if (self.isActive) {
-            // 开启状态：恢复红色，轻震一下
-            self.floatBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.3 blue:0.3 alpha:0.9];
-            [self.notifyGenerator notificationOccurred:UINotificationFeedbackTypeSuccess];
-        } else {
-            // 关闭状态：变成半透明灰色，重震一下（警告感）
-            self.floatBtn.backgroundColor = [UIColor colorWithWhite:0.5 alpha:0.5];
-            [self.notifyGenerator notificationOccurred:UINotificationFeedbackTypeWarning];
-        }
+        CGFloat screenWidth = [UIScreen mainScreen].bounds.size.width;
+        
+        [UIView animateWithDuration:0.3 animations:^{
+            if (self.isActive) {
+                self.window.frame = CGRectMake(self.window.frame.origin.x, self.window.frame.origin.y, 60.0, 60.0);
+                self.floatBtn.layer.cornerRadius = 30.0;
+                self.floatBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.3 blue:0.3 alpha:0.9];
+                [self.floatBtn setTitle:@"音量-" forState:UIControlStateNormal];
+                [self.notifyGenerator notificationOccurred:UINotificationFeedbackTypeSuccess];
+            } else {
+                CGFloat smallSize = 12.0;
+                CGFloat newX = screenWidth - smallSize - 2;
+                CGFloat newY = self.window.center.y;
+                
+                self.window.frame = CGRectMake(newX, newY - smallSize/2, smallSize, smallSize);
+                self.floatBtn.layer.cornerRadius = smallSize / 2.0;
+                self.floatBtn.backgroundColor = [UIColor colorWithWhite:0.7 alpha:0.3];
+                [self.floatBtn setTitle:@"" forState:UIControlStateNormal];
+                [self.notifyGenerator notificationOccurred:UINotificationFeedbackTypeWarning];
+            }
+        }];
         [self.notifyGenerator prepare];
     }
 }
@@ -174,7 +187,15 @@ void simulateVolumeDown(void) {
 }
 @end
 
+// 监听设置里的通知
+static void prefsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
+    [[FloaterManager sharedInstance] updateVisibility];
+}
+
 __attribute__((constructor)) static void initFloater() {
+    // 注册跨进程通知
+    CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, prefsChanged, CFSTR("com.yourname.volumedownfloater/toggle"), NULL, CFNotificationSuspensionBehaviorCoalesce);
+    
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [[FloaterManager sharedInstance] setup];
     });
